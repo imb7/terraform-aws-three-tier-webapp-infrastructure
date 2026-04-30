@@ -133,7 +133,7 @@ module "app_sg" {
       source_security_group_id = module.db_sg.security_group_id
     }
   ]
-  
+
   # External: outbound internet access via NAT Gateway
   egress_with_cidr_blocks = [
     {

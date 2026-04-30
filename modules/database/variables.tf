@@ -1,25 +1,34 @@
-# # # # # # # # # # # # # # # #
-#     General variables       #
-# # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   General Project Variables                                                    #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 variable "project_name" {
-  description = "Name of the project"
+  description = "name of the project"
   type        = string
+  default     = "three-tier-app"
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod)"
+  description = "deployment environment"
   type        = string
+  default     = "dev"
 }
 
 variable "region" {
   description = "AWS region to deploy resources"
   type        = string
+  default     = "us-east-1"
 }
 
-# # # # # # # # # # # # # # # #
-#   VPC & Network variables   #
-# # # # # # # # # # # # # # # #
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   VPC and Network Variables                                                    #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 variable "vpc_id" {
   description = "VPC ID where the database will be deployed"
@@ -27,80 +36,64 @@ variable "vpc_id" {
 }
 
 variable "database_subnet_ids" {
-  description = "List of database subnet IDs for the DB subnet group"
+  description = "List of database subnet IDs for the DB subnet group (minimum 2 across different AZs)"
   type        = list(string)
+
+  validation {
+    condition     = length(var.database_subnet_ids) >= 2
+    error_message = "At least 2 database subnets are required (across different AZs)."
+  }
 }
 
-variable "db_sg_id" {
-  description = "Security group ID for the database"
+variable "db_security_group_id" {
+  description = "Security group ID for the database cluster"
   type        = string
 }
 
-# # # # # # # # # # # # # # # #
-#   RDS Aurora variables      #
-# # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Aurora MySQL Engine Configuration                                            #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-variable "engine_version" {
-  description = "Aurora MySQL engine version (e.g., 8.0.mysql_aurora.3.02.0)"
-  type        = string
-  default     = "8.0.mysql_aurora.3.02.0"
-}
-
-variable "family_version" {
-  description = "Aurora MySQL family version (8.0 or 5.7)"
-  type        = string
-  default     = "8.0"
-}
-
-variable "database_name" {
-  description = "Initial database name"
-  type        = string
-  default     = "applicationdb"
-}
+# Engine version and database name are hardcoded in main.tf (8.0.mysql_aurora.3.04.0)
 
 variable "master_username" {
-  description = "Master username for the database"
+  description = "Master username for the database cluster"
   type        = string
   default     = "admin"
   sensitive   = true
+
+  validation {
+    condition     = length(var.master_username) >= 1 && length(var.master_username) <= 16
+    error_message = "Master username must be between 1 and 16 characters."
+  }
 }
 
 variable "master_password" {
-  description = "Master password for the database (must be between 8-41 characters)"
+  description = "Master password for the database cluster (should be stored securely in AWS Secrets Manager)"
   type        = string
+  default     = "admin1234"
   sensitive   = true
 
-  validation {
-    condition     = length(var.master_password) >= 8 && length(var.master_password) <= 41
-    error_message = "Master password must be between 8 and 41 characters."
-  }
-}
-
-variable "database_port" {
-  description = "Port for the Aurora database"
-  type        = number
-  default     = 3306
-}
-
-variable "instance_class" {
-  description = "DB instance class (use small instances for dev/testing to save costs)"
-  type        = string
-  default     = "db.t3.small"
-}
-
-variable "number_of_instances" {
-  description = "Number of Aurora instances (use 1 for dev/testing to reduce costs)"
-  type        = number
-  default     = 1
 
   validation {
-    condition     = var.number_of_instances >= 1 && var.number_of_instances <= 3
-    error_message = "Number of instances must be between 1 and 3."
+    condition     = var.master_password == null || (length(var.master_password) >= 8 && length(var.master_password) <= 41)
+    error_message = "Master password must be between 8 and 41 characters if provided."
   }
+
 }
+
+variable "master_password_version" {
+  description = "since password_wo does not store password in state file we need version to track if its changed"
+  type = string
+  default = "1"
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Backup and Maintenance Configuration                                         #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 variable "backup_retention_period" {
-  description = "Backup retention period in days (use 1-7 for dev to save costs)"
+  description = "Number of days to retain automated backups (1-35). Use 1 for dev to minimize costs"
   type        = number
   default     = 1
 
@@ -108,4 +101,10 @@ variable "backup_retention_period" {
     condition     = var.backup_retention_period >= 1 && var.backup_retention_period <= 35
     error_message = "Backup retention period must be between 1 and 35 days."
   }
+}
+
+variable "apply_immediately" {
+  description = "Apply changes immediately instead of during maintenance window"
+  type        = bool
+  default     = false
 }

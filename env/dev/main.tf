@@ -66,12 +66,10 @@ module "load_balancers" {
 module "database" {
   source = "../../modules/database"
 
-  vpc_id              = module.networking.vpc_id
-  database_subnet_ids = module.networking.database_subnet_ids
-  db_sg_id            = module.security.db_sg_id
-  project_name        = var.project_name
-  environment         = var.environment
-  region              = var.region
+  common_tags          = local.common_tags
+  vpc_id               = module.networking.vpc_id
+  database_subnet_ids  = module.networking.database_subnet_ids
+  db_security_group_id = module.security.db_sg_id
 }
 
 module "bastion_host" {
