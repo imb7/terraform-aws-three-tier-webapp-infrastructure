@@ -77,6 +77,12 @@ module "web_sg" {
       description = "Allow outbound HTTPS"
     }
   ]
+
+  # Outbound: DNS (required for package downloads)
+  egress_rules = [
+    "dns-udp",
+    "dns-tcp"
+  ]
 }
 
 
@@ -150,6 +156,12 @@ module "app_sg" {
       cidr_blocks = "0.0.0.0/0"
       description = "Allow outbound HTTPS"
     }
+  ]
+
+  # Outbound: DNS (required for package downloads)
+  egress_rules = [
+    "dns-udp",
+    "dns-tcp"
   ]
 }
 

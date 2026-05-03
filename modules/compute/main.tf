@@ -26,11 +26,36 @@ resource "aws_launch_template" "web_lt" {
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              apt update -y
-              apt install -y nginx
+              set -e
+              set -x
 
+              while ! ping -c1 8.8.8.8 &>/dev/null; do
+              echo "Waiting for network..."
+              sleep 3
+              done
+              
+              # Log all output
+              exec > >(tee /var/log/user-data.log)
+              exec 2>&1
+              
+              echo "Starting nginx installation at $(date)"
+              echo "User data started" > /tmp/user_data_status
+              
+              # Update package manager
+              apt-get update -y
+              
+              # Install nginx
+              apt-get install -y nginx
+              
+              # Enable and start nginx
               systemctl enable nginx
               systemctl start nginx
+              
+              # Verify nginx is running
+              systemctl status nginx
+              
+              echo "Nginx installation completed successfully at $(date)"
+              echo "User data finished" >> /tmp/user_data_status
               EOF
   )
 
@@ -73,14 +98,33 @@ resource "aws_launch_template" "app_lt" {
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              apt update -y
+              set -e
+              set -x
 
+              while ! ping -c1 8.8.8.8 &>/dev/null; do
+              echo "Waiting for network..."
+              sleep 3
+              done
+              
+              # Log all output
+              exec > >(tee /var/log/user-data.log)
+              exec 2>&1
+              
+              echo "Starting Node.js installation at $(date)"
+              echo "User data started" > /tmp/user_data_status
+              
+              # Update package manager
+              apt-get update -y
+              
               # Install Node.js (LTS)
               curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-              apt install -y nodejs
-
+              apt-get install -y nodejs
+              
               # Optional: process manager
               npm install -g pm2
+              
+              echo "Node.js installation completed successfully at $(date)"
+              echo "User data finished" >> /tmp/user_data_status
               EOF
   )
 

@@ -35,18 +35,18 @@ module "external_alb" {
       }
     }
 
-    # ex-https = {
-    #   port     = 443
-    #   protocol = "HTTPS"
-    #
-    #   # since listener is HTTPS, you must provide a certificate ARN to encrypt the traffic
-    #   certificate_arn = var.acm_certificate_arn
-    #
-    #   # forward passes the request internally to a target group for processing. The client doesn't know this happens.
-    #   forward = {
-    #     target_group_key = "ex-instance"
-    #   }
-    # }
+    ex-https = {
+      port     = 443
+      protocol = "HTTPS"
+    
+      # since listener is HTTPS, you must provide a certificate ARN to encrypt the traffic
+      certificate_arn = var.acm_certificate_arn
+    
+      # forward passes the request internally to a target group for processing. The client doesn't know this happens.
+      forward = {
+        target_group_key = "ex-instance"
+      }
+    }
   }
 
   # map of target groups to be created and attached to the ALB. The key is used in the listener configuration above.

@@ -28,7 +28,7 @@ variable "region" {
 variable "acm_certificate_arn" {
   description = "ARN of the ACM certificate for HTTPS listener"
   type        = string
-  default     = "arn:aws:acm:us-east-1:465630415820:certificate/37be491a-007e-4ded-8895-5b01a13446ea"
+  default     = "null" #provided in terraform.tfvars to avoid hardcoding in root module.
 }
 
 variable "vpc_id" {
