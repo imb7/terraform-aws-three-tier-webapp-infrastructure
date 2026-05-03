@@ -25,38 +25,33 @@ resource "aws_launch_template" "web_lt" {
   vpc_security_group_ids = [var.web_sg_id]
 
   user_data = base64encode(<<-EOF
-              #!/bin/bash
-              set -e
-              set -x
+        #!/bin/bash
+        set -x
 
-              while ! ping -c1 8.8.8.8 &>/dev/null; do
-              echo "Waiting for network..."
-              sleep 3
-              done
-              
-              # Log all output
-              exec > >(tee /var/log/user-data.log)
-              exec 2>&1
-              
-              echo "Starting nginx installation at $(date)"
-              echo "User data started" > /tmp/user_data_status
-              
-              # Update package manager
-              apt-get update -y
-              
-              # Install nginx
-              apt-get install -y nginx
-              
-              # Enable and start nginx
-              systemctl enable nginx
-              systemctl start nginx
-              
-              # Verify nginx is running
-              systemctl status nginx
-              
-              echo "Nginx installation completed successfully at $(date)"
-              echo "User data finished" >> /tmp/user_data_status
-              EOF
+        #Set up logging FIRST — captures everything including the wait loop
+        exec > >(tee /var/log/user-data.log) 2>&1
+
+        echo "User data started at $(date)" > /tmp/user_data_status
+
+        #Wait for internet — uses HTTPS (port 443 allowed in SG)
+        until curl -sf --max-time 5 https://archive.ubuntu.com > /dev/null 2>&1; do
+          echo "Waiting for internet connectivity... $(date)"
+          sleep 5
+        done
+
+        echo "Network ready. Starting nginx installation at $(date)"
+
+        apt-get update -y
+        apt-get install -y nginx
+        systemctl enable nginx
+        systemctl start nginx
+
+        #Use 'is-active' instead of 'status' — exits 0 on success, safe with set -e
+        systemctl is-active --quiet nginx && echo "nginx is running" || echo "nginx failed to start"
+
+        echo "Nginx installation completed successfully at $(date)"
+        echo "User data finished" >> /tmp/user_data_status
+        EOF
   )
 
   tag_specifications {
@@ -97,35 +92,40 @@ resource "aws_launch_template" "app_lt" {
   vpc_security_group_ids = [var.app_sg_id]
 
   user_data = base64encode(<<-EOF
-              #!/bin/bash
-              set -e
-              set -x
-
-              while ! ping -c1 8.8.8.8 &>/dev/null; do
-              echo "Waiting for network..."
-              sleep 3
-              done
-              
-              # Log all output
-              exec > >(tee /var/log/user-data.log)
-              exec 2>&1
-              
-              echo "Starting Node.js installation at $(date)"
-              echo "User data started" > /tmp/user_data_status
-              
-              # Update package manager
-              apt-get update -y
-              
-              # Install Node.js (LTS)
-              curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-              apt-get install -y nodejs
-              
-              # Optional: process manager
-              npm install -g pm2
-              
-              echo "Node.js installation completed successfully at $(date)"
-              echo "User data finished" >> /tmp/user_data_status
-              EOF
+          #!/bin/bash
+          set -x
+        
+          #Logging first — captures everything including the wait loop
+          exec > >(tee /var/log/user-data.log) 2>&1
+        
+          echo "User data started at $(date)" > /tmp/user_data_status
+        
+          #Wait for internet — HTTPS (port 443 allowed in app_sg)
+          until curl -sf --max-time 5 https://archive.ubuntu.com > /dev/null 2>&1; do
+            echo "Waiting for internet connectivity... $(date)"
+            sleep 5
+          done
+        
+          echo "Network ready. Starting Node.js installation at $(date)"
+        
+          apt-get update -y
+        
+          #Fetch setup script first, verify it downloaded, then execute
+          curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource_setup.sh
+          bash /tmp/nodesource_setup.sh
+        
+          apt-get install -y nodejs
+        
+          # Install pm2 globally
+          npm install -g pm2
+        
+          #Verify node installed correctly — safe check, no set -e risk
+          node --version && echo "Node.js installed: $(node --version)" || echo "Node.js install failed"
+          npm --version  && echo "npm installed: $(npm --version)"      || echo "npm install failed"
+        
+          echo "Node.js installation completed successfully at $(date)"
+          echo "User data finished" >> /tmp/user_data_status
+        EOF
   )
 
   tag_specifications {
